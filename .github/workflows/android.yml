@@ -19,8 +19,18 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
 
-      - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v3
+      - name: Create debug.keystore & mock google-services
+        run: |
+          # Generate debug.keystore so signing never fails
+          keytool -genkey -v -keystore debug.keystore -storepass android -alias androiddebugkey -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Android Debug,O=Android,C=US"
+          mkdir -p ~/.android
+          cp debug.keystore ~/.android/debug.keystore
+          
+          # Copy to project root if nested
+          find . -type d -name "app" -exec cp debug.keystore {}/../debug.keystore \; 2>/dev/null || true
+
+          # Create a dummy google-services.json to satisfy plugin
+          find . -type d -name "app" -exec bash -c 'echo "{\"project_info\":{\"project_number\":\"123\",\"project_id\":\"cal\"},\"client\":[{\"client_info\":{\"mobilesdk_app_id\":\"1:123:android:123\",\"android_client_info\":{\"package_name\":\"com.aistudio.riddhyascalculator.kxpqzm\"}}}]}" > "$1/google-services.json"' _ {} \;
 
       - name: Build with Gradle
         run: |
@@ -32,7 +42,6 @@ jobs:
             chmod +x ./gradlew
             ./gradlew assembleDebug --no-daemon
           else
-            echo "gradlew not found, using system gradle"
             gradle assembleDebug --no-daemon
           fi
 
